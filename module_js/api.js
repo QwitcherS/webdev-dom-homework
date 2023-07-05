@@ -1,39 +1,25 @@
-import { renderComments } from "./render.js";
-import {
-  comments,
-  formatDate,
-  nameInputElement,
-  textInputElement,
-  buttonElement,
-} from "./variables.js";
+import { sendComment } from "./option.js";
+import { getAppComments } from "./appComments.js";
+import { token } from "./login_components.js";
+import { comments } from "./main.js";
 
-const getAppComments = (response, array) => {
-  return response.json().then((responseData) => {
-    array = responseData.comments;
-    array = array.map((comment) => {
-      return {
-        name: comment.author.name,
-        date: formatDate(comment.date),
-        text: comment.text,
-        likes: "0",
-        isLiked: false,
-      };
-    });
-    renderComments(array);
-  });
-};
-
-function getPromise() {
-  fetch("https://wedev-api.sky.pro/api/v1/qwitchers/comments", {
+export function getPromise() {
+  return fetch("https://wedev-api.sky.pro/api/v2/qwitchers/comments", {
     method: "GET",
+    headers: {
+      Authorization: token,
+    },
   }).then((response) => {
     getAppComments(response, comments);
   });
 }
 
-function getPost() {
-  fetch("https://wedev-api.sky.pro/api/v1/qwitchers/comments", {
+export function getPost() {
+  return fetch("https://wedev-api.sky.pro/api/v2/qwitchers/comments", {
     method: "POST",
+    headers: {
+      Authorization: token,
+    },
     body: JSON.stringify({
       name: nameInputElement.value,
       text: textInputElement.value,
@@ -42,6 +28,8 @@ function getPost() {
   })
     .then((response) => {
       if (response.status === 201) {
+        textInputElement.classList.remove("error");
+        nameInputElement.classList.remove("error");
         return response.json();
       } else if (response.status === 400) {
         throw new Error("Плохой запрос");
@@ -50,26 +38,52 @@ function getPost() {
       }
     })
     .then(() => {
+      addFormElement.classList.add("disnone");
+      loadingListElement.classList.remove("disnone");
       textInputElement.value = "";
       nameInputElement.value = "";
-      
+
       getPromise();
     })
-    .then(() => {
-      buttonElement.disabled = false;
-      buttonElement.textContent = "Написать";
-    })
     .catch((error) => {
-      buttonElement.disabled = false;
-      buttonElement.textContent = "Написать";
+      addFormElement.classList.add("disnone");
+      loadingListElement.classList.remove("disnone");
       if (error.message === "Плохой запрос") {
         return alert("Слишком короткое имя или текст");
       }
       if (error.message === "Сервер упал") {
-        getPost();
-        getPromise();
+        sendComment();
       }
     });
 }
 
-export { getPromise, getPost };
+export function loginUser(login, password) {
+  return fetch("https://wedev-api.sky.pro/api/user/login", {
+    method: "POST",
+    body: JSON.stringify({
+      login,
+      password,
+    }),
+  }).then((response) => {
+    if (response.status === 400) {
+      throw new Error("Неверный логин или пароль");
+    }
+    return response.json();
+  });
+}
+
+export function regUser(login, password, name) {
+  return fetch("https://wedev-api.sky.pro/api/user", {
+    method: "POST",
+    body: JSON.stringify({
+      login,
+      password,
+      name,
+    }),
+  }).then((response) => {
+    if (response.status === 400) {
+      throw new Error("Такой пользователь уже существует");
+    }
+    return response.json();
+  });
+}
